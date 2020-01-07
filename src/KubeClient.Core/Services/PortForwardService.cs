@@ -55,11 +55,19 @@ namespace KubeClient.Core.Services
 
                     _logger.LogInformation("Forwarding {0} to {1}", source, target);
 
-                    await _kubectlService.PortForwardAsync(pod, token);
+                    var process = await _kubectlService.PortForwardAsync(pod, token);
+                    token.Register(() =>
+                    {
+                        if (!process.HasExited)
+                            process.Kill(true);
+                    });
+                    process.Start();
+                    process.WaitForExit();
+                    
 
                     _logger.LogInformation("Port forwarding on {0} --> {1} was terminated. Will try to reload", source,
                         target);
-                    await Task.Delay(500, token);
+                    await Task.Delay(500);
                 }
             }, token);
         }
@@ -88,7 +96,11 @@ namespace KubeClient.Core.Services
                 while (cancellationToken.IsCancellationRequested == false)
                 {
                     var newContext = await _kubectlService.GetCurrentContextAsync();
-                    if (currentContext == newContext) continue;
+                    if (currentContext == newContext)
+                    {
+                        await Task.Delay(1000, cancellationToken);
+                        continue;
+                    }
                     tokenSource.Cancel();
                     break;
                 }

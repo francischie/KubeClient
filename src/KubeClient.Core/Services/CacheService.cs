@@ -3,7 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Caching.Memory;
 
-namespace KubeClient.Core
+namespace KubeClient.Core.Services
 {
     public interface ICacheService
     {
@@ -21,12 +21,15 @@ namespace KubeClient.Core
             _lock = new SemaphoreSlim(1,1);
         }
 
-        public async Task<T> GetOrCreateAsync<T>(string key, Func<ICacheEntry, Task<T>> factory, CancellationToken cancellationToken = default)
+        public Task<T> GetOrCreateAsync<T>(string key, Func<ICacheEntry, Task<T>> factory, CancellationToken cancellationToken = default)
         {
-            await _lock.WaitAsync();
-            var result = await  _cache.GetOrCreateAsync(key, factory);
-            _lock.Release();
-            return result;
+            return _cache.GetOrCreateAsync(key, async entry =>
+            {
+                await _lock.WaitAsync(cancellationToken);
+                var result = await factory.Invoke(entry);
+                _lock.Release();
+                return result;
+            });
         }
     }
     

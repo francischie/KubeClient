@@ -10,7 +10,7 @@ namespace KubeClient.Core.Services
 {
     public interface IKubectlService
     {
-        Task PortForwardAsync(PodMapping podMapping, CancellationToken token = default);
+        Task<Process> PortForwardAsync(PodMapping podMapping, CancellationToken token = default);
         Task<string> GetCurrentContextAsync();
     }
 
@@ -23,24 +23,23 @@ namespace KubeClient.Core.Services
             _cacheService = cacheService;
         }
 
-        private Task<List<string>> GetPodsAsync(string clusterName, string namespaceName,
-            CancellationToken cancellationToken = default)
+        private Task<List<string>> GetPodsAsync(string clusterName, string namespaceName)
         {
             var key = $"{clusterName}.{namespaceName}.pods";
             return _cacheService.GetOrCreateAsync(key, async entry =>
             {
-                var command = CreateCommand("get pods ",  clusterName, namespaceName);
-                var output =  await ExecuteCommandAsync(command, true, cancellationToken);
+                var command = CreateCommand("get pods ", clusterName, namespaceName);
+                var output = await ExecuteCommandAsync(command);
                 var names = output.Split(Environment.NewLine.ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
-                var list = names.Skip(1).Select(a => System.Text.RegularExpressions.Regex.Split(a, @"\s{2,}")[0]).ToList();
-                entry.AbsoluteExpiration = list.Count > 0 
-                    ? DateTimeOffset.Now.AddMinutes(1) 
+                var list = names.Skip(1).Select(a => System.Text.RegularExpressions.Regex.Split(a, @"\s{2,}")[0])
+                    .ToList();
+                entry.AbsoluteExpiration = list.Count > 0
+                    ? DateTimeOffset.Now.AddMinutes(1)
                     : DateTimeOffset.FromUnixTimeMilliseconds(1);
-                return list; 
-            }, cancellationToken);
-          
+                return list;
+            });
         }
-        
+
         public Task<string> GetCurrentContextAsync()
         {
             return ExecuteCommandAsync("config current-context");
@@ -53,7 +52,7 @@ namespace KubeClient.Core.Services
 
             if (!string.IsNullOrWhiteSpace(namespaceName))
                 command += $"--namespace={namespaceName} ";
-            
+
             return command;
         }
 
@@ -62,14 +61,7 @@ namespace KubeClient.Core.Services
         {
             var result = await Task<string>.Factory.StartNew(() =>
             {
-                var process = CreateKubectlProcess( command, redirectOutput);
-                
-                cancellationToken.Register(() =>
-                {
-                    if (process != null && !process.HasExited)
-                        process.Kill(true);
-                });
-                
+                var process = CreateKubectlProcess(command, redirectOutput);
                 process.Start();
                 var output = redirectOutput ? process.StandardOutput.ReadToEnd() : string.Empty;
                 process.WaitForExit();
@@ -77,22 +69,22 @@ namespace KubeClient.Core.Services
             }, cancellationToken);
             return result.Trim();
         }
-        
-        public  async Task PortForwardAsync(PodMapping podMapping, CancellationToken cancellationToken = default)
+
+        public async Task<Process> PortForwardAsync(PodMapping podMapping, CancellationToken cancellationToken = default)
         {
             var command = CreateCommand("port-forward ", podMapping.ClusterName, podMapping.Namespace);
-            var podName = await FindClosestNameAsync(podMapping, cancellationToken);
-            
+            var podName = await FindClosestNameAsync(podMapping);
+
             if (string.IsNullOrWhiteSpace(podName))
-                throw new Exception($"Can't find pod name: {podMapping.Name}"); 
+                throw new Exception($"Can't find pod name: {podMapping.Name}");
 
             command += $"{podName} {podMapping.LocalPort}:{podMapping.RemotePort}";
-            await ExecuteCommandAsync(command, false, cancellationToken);
+            return CreateKubectlProcess(command, false);
         }
-        
-        private async Task<string> FindClosestNameAsync(PodMapping podMapping, CancellationToken cancellationToken = default)
+
+        private async Task<string> FindClosestNameAsync(PodMapping podMapping)
         {
-            var pods = await GetPodsAsync(podMapping.ClusterName, podMapping.Namespace, cancellationToken);
+            var pods = await GetPodsAsync(podMapping.ClusterName, podMapping.Namespace);
             return pods.LastOrDefault(a => a == podMapping.Name || a.StartsWith(podMapping.Name));
         }
 
@@ -107,9 +99,8 @@ namespace KubeClient.Core.Services
                 RedirectStandardError = redirectOutput,
                 CreateNoWindow = true,
             };
-            var proc = new Process { StartInfo = psi };
-            return proc; 
+            var proc = new Process {StartInfo = psi};
+            return proc;
         }
-        
     }
 }

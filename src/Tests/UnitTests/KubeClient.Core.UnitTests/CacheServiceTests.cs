@@ -1,6 +1,7 @@
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using KubeClient.Core.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
