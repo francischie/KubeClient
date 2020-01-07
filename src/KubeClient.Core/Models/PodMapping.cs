@@ -8,6 +8,6 @@
         
         public string Namespace { get; set; }
         
-        public string Cluster { get; set; }
+        public string ClusterName { get; set; }
     }
 }

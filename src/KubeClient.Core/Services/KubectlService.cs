@@ -11,6 +11,7 @@ namespace KubeClient.Core.Services
     public interface IKubectlService
     {
         Task PortForwardAsync(PodMapping podMapping, CancellationToken token = default);
+        Task<string> GetCurrentContextAsync();
     }
 
     public class KubectlService : IKubectlService
@@ -39,6 +40,11 @@ namespace KubeClient.Core.Services
             }, cancellationToken);
           
         }
+        
+        public Task<string> GetCurrentContextAsync()
+        {
+            return ExecuteCommandAsync("config current-context");
+        }
 
         private string CreateCommand(string command, string clusterName, string namespaceName)
         {
@@ -56,18 +62,25 @@ namespace KubeClient.Core.Services
         {
             var result = await Task<string>.Factory.StartNew(() =>
             {
-                var proc = CreateKubectlProcess( command, redirectOutput);
-                proc.Start();
-                var output = redirectOutput ? proc.StandardOutput.ReadToEnd() : string.Empty;
-                proc.WaitForExit();
+                var process = CreateKubectlProcess( command, redirectOutput);
+                
+                cancellationToken.Register(() =>
+                {
+                    if (process != null && !process.HasExited)
+                        process.Kill(true);
+                });
+                
+                process.Start();
+                var output = redirectOutput ? process.StandardOutput.ReadToEnd() : string.Empty;
+                process.WaitForExit();
                 return output;
             }, cancellationToken);
-            return result;
+            return result.Trim();
         }
         
         public  async Task PortForwardAsync(PodMapping podMapping, CancellationToken cancellationToken = default)
         {
-            var command = CreateCommand("port-forward ", podMapping.Cluster, podMapping.Namespace);
+            var command = CreateCommand("port-forward ", podMapping.ClusterName, podMapping.Namespace);
             var podName = await FindClosestNameAsync(podMapping, cancellationToken);
             
             if (string.IsNullOrWhiteSpace(podName))
@@ -79,7 +92,7 @@ namespace KubeClient.Core.Services
         
         private async Task<string> FindClosestNameAsync(PodMapping podMapping, CancellationToken cancellationToken = default)
         {
-            var pods = await GetPodsAsync(podMapping.Cluster, podMapping.Namespace, cancellationToken);
+            var pods = await GetPodsAsync(podMapping.ClusterName, podMapping.Namespace, cancellationToken);
             return pods.LastOrDefault(a => a == podMapping.Name || a.StartsWith(podMapping.Name));
         }
 

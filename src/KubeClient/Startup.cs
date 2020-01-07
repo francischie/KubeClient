@@ -33,10 +33,10 @@ namespace KubeClient
 
             var loggerFactory = _serviceProvider.GetService<ILoggerFactory>();
 
-            _logger = CreateLoggger(loggerFactory);
+            _logger = CreateLogger(loggerFactory);
         }
 
-        private ILogger CreateLoggger(ILoggerFactory loggerFactory)
+        private ILogger CreateLogger(ILoggerFactory loggerFactory)
         {
             Log.Logger = new LoggerConfiguration()
                 .ReadFrom.Configuration(Configuration)
