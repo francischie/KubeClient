@@ -1,7 +1,11 @@
+using System.Threading;
+using System.Threading.Tasks;
+
 namespace KubeClient
 {
     public interface IPortForwarder
     {
-        void Run();
+        Task RunAsync(CancellationToken cancellationToken);
+        
     }
 }

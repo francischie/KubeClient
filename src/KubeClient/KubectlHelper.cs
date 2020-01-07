@@ -13,16 +13,24 @@ namespace KubeClient
             return output.TrimEnd(); 
         }
 
-        public static List<string> GetPods()
+        private static List<string> GetPods(string cluster, string namespaceName)
         {
-            var output = ExecuteKubectlCommand("get pods");
+            var command = "get pods ";
+        
+            if (!string.IsNullOrEmpty(cluster))
+                command += $"--context={cluster} ";
 
+            if (!string.IsNullOrWhiteSpace(namespaceName))
+                command += $"--namespace={namespaceName}";
+        
+            var output = ExecuteKubectlCommand(command);
+            
             var names = output.Split(Environment.NewLine.ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
 
             return names.Skip(1).Select(a => System.Text.RegularExpressions.Regex.Split(a, @"\s{2,}")[0]).ToList();
         }
 
-        public static Process PortForward(PodMapping podMapping, string podName)
+        public static Process PortForward(PodMapping podMapping)
         {
             var command = "port-forward ";
             if (!string.IsNullOrEmpty(podMapping.Cluster))
@@ -31,9 +39,21 @@ namespace KubeClient
             if (!string.IsNullOrWhiteSpace(podMapping.Namespace))
                 command += $"--namespace={podMapping.Namespace} ";
 
+            var podName = FindClosestName(podMapping);
+            
+            if (string.IsNullOrWhiteSpace(podName)) return null; 
+
             command += $"{podName} {podMapping.LocalPort}:{podMapping.RemotePort}";
-            return CreateKubectlProcess(command, false);
+            return CreateKubectlProcess(command);
         }
+        
+        
+        private static string FindClosestName(PodMapping podMapping)
+        {
+            var pods = GetPods(podMapping.Cluster, podMapping.Namespace);
+            return pods.LastOrDefault(a => a == podMapping.Name || a.StartsWith(podMapping.Name));
+        }
+
 
         private static string ExecuteKubectlCommand(string command, bool redirectOutput = true)
         {

@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System.Threading;
+using System.Threading.Tasks;
 
 namespace KubeClient
 {
@@ -6,8 +7,9 @@ namespace KubeClient
     {
         static async Task Main()
         {
+            var cancellationToken = new CancellationTokenSource();
            var startup = new Startup();
-           await startup.RunAsync();
+           await startup.RunAsync(cancellationToken.Token);
         }
 
     }

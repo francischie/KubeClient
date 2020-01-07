@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -42,16 +43,12 @@ namespace KubeClient
             return loggerFactory.CreateLogger<Startup>();
         }
      
-        public Task RunAsync()
+        public Task RunAsync(CancellationToken cancellationToken)
         {
-            return Task.Run(() =>
-            {
                 _logger.LogInformation("Starting kubernetes port forwarder.");
 
                 var portForwarder = _serviceProvider.GetService<IPortForwarder>();
-                portForwarder.Run();
-            });
-        
+                return portForwarder.RunAsync(cancellationToken);
             
         }
     }
