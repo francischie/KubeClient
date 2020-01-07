@@ -10,7 +10,6 @@ namespace KubeClient.Core.Services
 {
     public interface IKubectlService
     {
-        Task<List<string>> GetPodsAsync(string clusterName, string namespaceName, CancellationToken cancellationToken);
         Task PortForwardAsync(PodMapping podMapping, CancellationToken token = default);
     }
 
@@ -23,25 +22,25 @@ namespace KubeClient.Core.Services
             _cacheService = cacheService;
         }
 
-        public Task<List<string>> GetPodsAsync(string clusterName, string namespaceName,
+        private Task<List<string>> GetPodsAsync(string clusterName, string namespaceName,
             CancellationToken cancellationToken = default)
         {
             var key = $"{clusterName}.{namespaceName}.pods";
             return _cacheService.GetOrCreateAsync(key, async entry =>
             {
-                var command = CreateParameter("get pods ",  clusterName, namespaceName);
-                var output =  await ExecuteCommandAsync(command);
+                var command = CreateCommand("get pods ",  clusterName, namespaceName);
+                var output =  await ExecuteCommandAsync(command, true, cancellationToken);
                 var names = output.Split(Environment.NewLine.ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
                 var list = names.Skip(1).Select(a => System.Text.RegularExpressions.Regex.Split(a, @"\s{2,}")[0]).ToList();
                 entry.AbsoluteExpiration = list.Count > 0 
                     ? DateTimeOffset.Now.AddMinutes(1) 
                     : DateTimeOffset.FromUnixTimeMilliseconds(1);
                 return list; 
-            });
+            }, cancellationToken);
           
         }
 
-        private static string CreateParameter(string command, string clusterName, string namespaceName)
+        private string CreateCommand(string command, string clusterName, string namespaceName)
         {
             if (!string.IsNullOrEmpty(clusterName))
                 command += $"--context={clusterName} ";
@@ -68,7 +67,7 @@ namespace KubeClient.Core.Services
         
         public  async Task PortForwardAsync(PodMapping podMapping, CancellationToken cancellationToken = default)
         {
-            var command = CreateParameter("port-forward ", podMapping.Cluster, podMapping.Namespace);
+            var command = CreateCommand("port-forward ", podMapping.Cluster, podMapping.Namespace);
             var podName = await FindClosestNameAsync(podMapping, cancellationToken);
             
             if (string.IsNullOrWhiteSpace(podName))

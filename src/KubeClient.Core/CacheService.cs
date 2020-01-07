@@ -7,7 +7,7 @@ namespace KubeClient.Core
 {
     public interface ICacheService
     {
-        Task<T> GetOrCreateAsync<T>(string key, Func<ICacheEntry, Task<T>> factory);
+        Task<T> GetOrCreateAsync<T>(string key, Func<ICacheEntry, Task<T>> factory, CancellationToken cancellationToken = default);
     }
 
     public class CacheService : ICacheService
@@ -21,7 +21,7 @@ namespace KubeClient.Core
             _lock = new SemaphoreSlim(1,1);
         }
 
-        public async Task<T> GetOrCreateAsync<T>(string key, Func<ICacheEntry, Task<T>> factory)
+        public async Task<T> GetOrCreateAsync<T>(string key, Func<ICacheEntry, Task<T>> factory, CancellationToken cancellationToken = default)
         {
             await _lock.WaitAsync();
             var result = await  _cache.GetOrCreateAsync(key, factory);
