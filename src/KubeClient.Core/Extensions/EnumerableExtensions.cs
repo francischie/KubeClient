@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace KubeClient.Extensions
+namespace KubeClient.Core.Extensions
 {
     public static class EnumerableExtensions
     {

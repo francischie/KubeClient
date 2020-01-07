@@ -25,4 +25,8 @@
     </None>
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\KubeClient.Core\KubeClient.Core.csproj" />
+  </ItemGroup>
+
 </Project>

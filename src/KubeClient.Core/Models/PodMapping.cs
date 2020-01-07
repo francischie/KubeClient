@@ -1,4 +1,4 @@
-﻿namespace KubeClient
+﻿namespace KubeClient.Core.Models
 {
     public class PodMapping
     {

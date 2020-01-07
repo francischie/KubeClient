@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
+using KubeClient.Core.Extensions;
+using KubeClient.Core.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -13,7 +15,8 @@ namespace KubeClient
     {
         private IConfiguration Configuration { get; set; }
         private readonly ILogger _logger;
-        private readonly IServiceProvider _serviceProvider; 
+        private readonly IServiceProvider _serviceProvider;
+
         public Startup()
         {
             var builder = new ConfigurationBuilder()
@@ -24,9 +27,8 @@ namespace KubeClient
 
             _serviceProvider = new ServiceCollection()
                 .AddLogging()
-                .AddMemoryCache()
-                .AddTransient<IPortForwarder, PortForwarder>()
                 .AddTransient(a => Configuration)
+                .AddKubClientServices()
                 .BuildServiceProvider();
 
             var loggerFactory = _serviceProvider.GetService<ILoggerFactory>();
@@ -42,14 +44,13 @@ namespace KubeClient
             loggerFactory.AddSerilog();
             return loggerFactory.CreateLogger<Startup>();
         }
-     
+
         public Task RunAsync(CancellationToken cancellationToken)
         {
-                _logger.LogInformation("Starting kubernetes port forwarder.");
+            _logger.LogInformation("Starting kubernetes port forwarder.");
 
-                var portForwarder = _serviceProvider.GetService<IPortForwarder>();
-                return portForwarder.RunAsync(cancellationToken);
-            
+            var portForwarder = _serviceProvider.GetService<IPortForwardService>();
+            return portForwarder.RunAsync(cancellationToken);
         }
     }
 }
